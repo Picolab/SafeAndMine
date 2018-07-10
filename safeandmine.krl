@@ -8,18 +8,27 @@ ruleset io.picolabs.safeandmine {
         , { "name": "getInformation", "args" : [ "info" ] }
       //, { "name": "entry", "args": [ "key" ] }
       ] , "events":
-      [ { "domain": "information", "type": "update", "attrs" : [ "name" ] }
-      , { "domain": "information", "type": "delete", "attrs": [ "toDelete" ] }
+      [ { "domain": "safeandmine", "type": "update", "attrs" : [ "name" ] }
+      , { "domain": "safeandmine", "type": "delete", "attrs": [ "toDelete" ] }
       ]
     }
     
     getInformation = function(info) {
       info => ent:contactInfo{info} | ent:contactInfo
     }
+    
+    app = {"name":"safeandmine","version":"0.0"/* img: , pre: , ..*/};
+    bindings = function(){
+      {
+        //currently no bindings
+      };
+    }
   }
   
+  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "http://images.clipartpanda.com/lock-clipart-clip-art-unlock-clipart-1.jpg"} ); }
+  
   rule information_update {
-    select when information update
+    select when safeandmine update
     
     pre {
       attrs = event:attrs.filter(function(v,k){k != "_headers"});
@@ -32,7 +41,7 @@ ruleset io.picolabs.safeandmine {
   }
   
   rule information_delete {
-    select when information delete
+    select when safeandmine delete
     
     pre {
       toDelete = event:attr("toDelete")
