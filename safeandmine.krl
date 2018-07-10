@@ -1,4 +1,4 @@
-ruleset safeandmine {
+ruleset io.picolabs.safeandmine {
   meta {
     shares __testing, getInformation
   }
