@@ -122,22 +122,42 @@ ruleset io.picolabs.safeandmine {
       tagID = event:attr("attrs"){"tagID"}.klog("TAGID");
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
-
-    http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise="registerTagID" ) setting(resp)
+    
+    http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    
+    always {
+      ent:channels := ent:channels.defaultsTo([]).append(channel)
+    }
     
   }
   
   rule post_response {
-    select when http post where event:attr("label") == "registerTagID"
+    select when http post
+    
     pre{
       content = event:attr("content").decode();
+      tagID = content{"tagID"};
+      DID = content{"DID"}
     }
-    if (event:attr("status_code") == 200) then noop();
+    if (event:attr("status_code") == 200 && tagID && DID) then noop();
     
     fired {
-      ent:tagStore := ent:tagStore.defaultsTo({}).put([content{"tagID"}], content{"DID"});
+      ent:tagStore := ent:tagStore.defaultsTo({}).put(tagID, DID);
     }
+    else {
+      raise safeandmine event "cleanup" attributes event:attrs
+    }
+  }
+  
+  rule failed_post_cleanup {
+    select when safeandmine cleanup where ent:channels >< event:attr("label")
     
+    always {
+      raise wrangler event "channel_deletion_requested"
+          attributes {
+            "eci" : event:attr("label")
+          }
+    }
   }
   
 }
