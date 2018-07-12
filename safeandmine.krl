@@ -14,7 +14,8 @@ ruleset io.picolabs.safeandmine {
     }
     
     getInformation = function(info) {
-      info => ent:contactInfo{info} | ent:contactInfo
+      data = ent:contactInfo.defaultsTo({});
+      info => data{info} | data
     }
     
     app = {"name":"safeandmine","version":"0.0"/* img: , pre: , ..*/};
@@ -31,7 +32,7 @@ ruleset io.picolabs.safeandmine {
     select when safeandmine update
     
     pre {
-      attrs = event:attrs.filter(function(v,k){k != "_headers"});
+      attrs = event:attrs.filter(function(v,k){k != "_headers" && k != "headers"});
     }
     
     always {
