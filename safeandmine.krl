@@ -19,7 +19,7 @@ ruleset io.picolabs.safeandmine {
     }
     
     getTags = function() {
-      ent:tagStore.defaultsTo([])
+      ent:tagStore.defaultsTo({}).keys()
     }
     
     app = {"name":"safeandmine","version":"0.0"/* img: , pre: , ..*/};
@@ -123,26 +123,19 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
 
-    http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel } ) setting(resp)
-    
-    always {
-      raise safeandmine event "http_response"
-      attributes resp
-    }
+    http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise="registerTagID" ) setting(resp)
     
   }
   
   rule post_response {
-    select when http post
-    
-    pre {
-      resp = event:attr("resp").decode();
+    select when http post where event:attr("label") == "registerTagID"
+    pre{
+      content = event:attr("content").decode();
     }
-    
-    if (resp{"status_code"} == 200) then noop();
+    if (event:attr("status_code") == 200) then noop();
     
     fired {
-      ent:tagStore := ent:tagStore.defaultsTo([]).append(resp{"content"}{"tagID"});
+      ent:tagStore := ent:tagStore.defaultsTo({}).put([content{"tagID"}], content{"DID"});
     }
     
   }
