@@ -52,11 +52,8 @@ ruleset io.picolabs.safeandmine {
     pre {
       exists = getPolicyID()
     }
-    if exists.isnull() then noop();
-    
-    fired {
-      engine:newPolicy(policy)
-    }
+    if exists.isnull() then 
+      engine:newPolicy(policy);
   }
   
   rule information_update {
@@ -126,7 +123,7 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
 
-    http:post("https://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel } ) setting(resp)
+    http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel } ) setting(resp)
     
     always {
       raise safeandmine event "http_response"
@@ -139,13 +136,13 @@ ruleset io.picolabs.safeandmine {
     select when http post
     
     pre {
-      resp = event:attr("resp");
+      resp = event:attr("resp").decode();
     }
     
-    if (resp) then noop();
+    if (resp{"status_code"} == 200) then noop();
     
     fired {
-      ent:tagStore := ent:tagStore.defaultsTo([]).append(tagID)
+      ent:tagStore := ent:tagStore.defaultsTo([]).append(resp{"content"}{"tagID"});
     }
     
   }
