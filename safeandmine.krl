@@ -149,7 +149,7 @@ ruleset io.picolabs.safeandmine {
     }
   }
   
-  rule failed_post_cleanup {
+  rule channel_cleanup {
     select when safeandmine cleanup where ent:channels >< event:attr("label")
     
     always {
@@ -157,6 +157,25 @@ ruleset io.picolabs.safeandmine {
           attributes {
             "eci" : event:attr("label")
           }
+    }
+  }
+  
+  rule deregister_tag {
+    select when safeandmine deregister
+    
+    pre {
+      tagToDelete = event("tagID");
+      channelToDelete = ent:tagStore{tagToDelete};
+    }
+    
+    if tagTooDelete && channelToDelete then noop();
+    
+    fired{
+      ent:tagStore := ent:tagStore.delete(tagToDelete);
+      raise safeandmine event "cleanup"
+      attributes {
+        "label" : channelToDelete
+      }
     }
   }
   
