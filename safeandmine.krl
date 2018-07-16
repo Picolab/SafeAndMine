@@ -97,7 +97,9 @@ ruleset io.picolabs.safeandmine {
     
       fired {
         raise safeandmine event "new_tag_channel"
-          attributes event:attrs
+          attributes {
+            "tagID" : event:attr("tagID").uc()
+          }
       }
   }
   
