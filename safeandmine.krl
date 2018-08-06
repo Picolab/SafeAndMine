@@ -60,7 +60,10 @@ ruleset io.picolabs.safeandmine {
     select when safeandmine update
     
     pre {
-      attrs = event:attrs.filter(function(v,k){k != "_headers"});
+      shareName = event:attr("shareName").as("Boolean").defaultsTo(false);
+      sharePhone = event:attr("sharePhone").as("Boolean").defaultsTo(false);
+      shareEmail = event:attr("shareEmail").as("Boolean").defaultsTo(false);
+      attrs = event:attrs.filter(function(v,k){k != "_headers"}).put("shareName", shareName).put("sharePhone", sharePhone).put("shareEmail", shareEmail);
     }
     
     always {
@@ -170,7 +173,7 @@ ruleset io.picolabs.safeandmine {
       channelToDelete = ent:tagStore{tagToDelete};
     }
     
-    if tagTooDelete && channelToDelete then noop();
+    if tagToDelete && channelToDelete then noop();
     
     fired{
       ent:tagStore := ent:tagStore.delete(tagToDelete);
