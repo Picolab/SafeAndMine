@@ -10,8 +10,10 @@ ruleset io.picolabs.safeandmine {
       [ { "domain": "safeandmine", "type": "update", "attrs" : [ "name" ] }
       , { "domain": "safeandmine", "type": "delete", "attrs": [ "toDelete" ] }
       , { "domain": "safeandmine", "type": "new_tag", "attrs": [ "tagID" ] }
+      , { "domain": "safeandmine", "type": "deregister", "attrs": [ "tagID" ] }
       ]
     }
+    
     
     getInformation = function(info) {
       data = ent:contactInfo.defaultsTo({});
@@ -169,11 +171,12 @@ ruleset io.picolabs.safeandmine {
     select when safeandmine deregister
     
     pre {
-      tagToDelete = event("tagID");
+      tagToDelete = event:attr("tagID");
       channelToDelete = ent:tagStore{tagToDelete};
     }
     
     if tagToDelete && channelToDelete then noop();
+    //http:post("http://localhost:3001/safeandmine/api/delete", json = { "tagID" : tagToDelete });
     
     fired{
       ent:tagStore := ent:tagStore.delete(tagToDelete);
