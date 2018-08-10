@@ -130,7 +130,7 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
     
-    http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
     
     always {
       ent:channels := ent:channels.defaultsTo([]).append(channel)
