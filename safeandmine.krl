@@ -44,6 +44,8 @@ ruleset io.picolabs.safeandmine {
       }
     }
     
+    META_FIELD_LENGTH = 100
+    MESSAGE_CHAR_LENGTH = 250
   }
   
   rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "http://images.clipartpanda.com/lock-clipart-clip-art-unlock-clipart-1.jpg"} ); }
@@ -60,14 +62,21 @@ ruleset io.picolabs.safeandmine {
   
   rule information_update {
     select when safeandmine update
-    
     pre {
-      shareName = event:attr("shareName").as("Boolean").defaultsTo(false);
-      sharePhone = event:attr("sharePhone").as("Boolean").defaultsTo(false);
-      shareEmail = event:attr("shareEmail").as("Boolean").defaultsTo(false);
-      attrs = event:attrs.filter(function(v,k){k != "_headers"}).put("shareName", shareName).put("sharePhone", sharePhone).put("shareEmail", shareEmail);
+      name = event:attr("name").defaultsTo(ent:contactInfo{["name"]}).defaultsTo("").substr(0, META_FIELD_LENGTH)
+      email = event:attr("email").defaultsTo(ent:contactInfo{["email"]}).defaultsTo("").substr(0, META_FIELD_LENGTH)
+      phone = event:attr("phone").defaultsTo(ent:contactInfo{["phone"]}).defaultsTo("").substr(0, META_FIELD_LENGTH)
+      message = event:attr("message").defaultsTo(ent:contactInfo{["message"]}).defaultsTo("").substr(0, MESSAGE_CHAR_LENGTH)
+      attrs = {
+        "name" : name,
+        "email" : email,
+        "phone" : phone,
+        "message" : message,
+        "shareName" : event:attr("shareName").as("Boolean").defaultsTo(false),
+        "sharePhone" : event:attr("sharePhone").as("Boolean").defaultsTo(false),
+        "shareEmail" : event:attr("shareEmail").as("Boolean").defaultsTo(false)
+      }
     }
-    
     always {
       ent:contactInfo := ent:contactInfo.defaultsTo({}).put(attrs);
     }
@@ -130,7 +139,8 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
     
-    http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
     
     always {
       ent:channels := ent:channels.defaultsTo([]).append(channel)
