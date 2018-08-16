@@ -139,8 +139,8 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
     
-    //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
-    //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    //http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
     
     always {
       ent:channels := ent:channels.defaultsTo([]).append(channel)
@@ -170,6 +170,8 @@ ruleset io.picolabs.safeandmine {
     select when safeandmine cleanup where ent:channels >< event:attr("label")
     
     always {
+      ent:channels := ent:channels.splice(ent:channels.index(event:attr("label")), 1);
+      
       raise wrangler event "channel_deletion_requested"
           attributes {
             "eci" : event:attr("label")
@@ -185,7 +187,8 @@ ruleset io.picolabs.safeandmine {
       channelToDelete = ent:tagStore{tagToDelete};
     }
     
-    if tagToDelete && channelToDelete then noop();
+    if tagToDelete && channelToDelete then 
+    http:post("https://apps.picolabs.io/safeandmine/api/delete", json = { "tagID" : tagToDelete });
     //http:post("http://localhost:3001/safeandmine/api/delete", json = { "tagID" : tagToDelete });
     
     fired{
@@ -195,6 +198,20 @@ ruleset io.picolabs.safeandmine {
         "label" : channelToDelete
       }
     }
+  }
+  
+  rule deregister_all {
+    select when apps cleanup
+    
+    foreach ent:tagStore setting (DID, tagID)
+    
+    always {
+      raise safeandmine event "deregister"
+      attributes {
+        "tagID" : tagID
+      }
+    }
+    
   }
   
 }
