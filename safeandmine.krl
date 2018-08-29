@@ -48,7 +48,7 @@ ruleset io.picolabs.safeandmine {
     MESSAGE_CHAR_LENGTH = 250
   }
   
-  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "http://images.clipartpanda.com/lock-clipart-clip-art-unlock-clipart-1.jpg"} ); }
+  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "https://image.flaticon.com/icons/svg/172/172076.svg"} ); }
   
   rule create_policy {
     select when wrangler ruleset_added where rid >< meta:rid
