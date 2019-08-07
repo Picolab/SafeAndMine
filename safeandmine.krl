@@ -1,16 +1,21 @@
 ruleset io.picolabs.safeandmine {
   meta {
     shares __testing, getInformation, getTags
+    use module io.picolabs.wrangler alias Wrangler
+    use module io.picolabs.subscription alias sub
   }
   global {
     __testing = { "queries":
       [ { "name": "__testing" }
         , { "name": "getInformation", "args" : [ "info" ] }
+        , { "name": "getTags" }
       ] , "events":
       [ { "domain": "safeandmine", "type": "update", "attrs" : [ "name" ] }
       , { "domain": "safeandmine", "type": "delete", "attrs": [ "toDelete" ] }
-      , { "domain": "safeandmine", "type": "new_tag", "attrs": [ "tagID" ] }
-      , { "domain": "safeandmine", "type": "deregister", "attrs": [ "tagID" ] }
+      , { "domain": "safeandmine", "type": "new_tag", "attrs": [ "tagID", "domain" ] }
+      , { "domain": "safeandmine", "type": "deregister", "attrs": [ "tagID", "domain" ] }
+      , { "domain": "safeandmine", "type": "notify", "attrs": [ "tagID" ] }
+      , { "domain": "apps", "type": "cleanup" }
       ]
     }
     
@@ -21,7 +26,9 @@ ruleset io.picolabs.safeandmine {
     }
     
     getTags = function() {
-      ent:tagStore.defaultsTo({}).keys()
+      ent:tagStore.defaultsTo({}).map(function(v,k) {
+        v.keys()
+      });
     }
     
     app = {"name":"safeandmine","version":"0.0"/* img: , pre: , ..*/};
@@ -32,15 +39,21 @@ ruleset io.picolabs.safeandmine {
     }
     
     getPolicyID = function(){
-      engine:listPolicies().filter(function(x){x{"name"} == "information requests only"})[0]{"id"}
+      engine:listPolicies().filter(function(x){x{"name"} == "registry pico events only"})[0]{"id"}
     }
     
     policy = {
-      "name" : "information requests only",
+      "name" : "registry pico events only",
       "query" : {
           "allow" : [
             { "rid" : "io.picolabs.safeandmine", "name" : "getInformation"}
             ]
+      },
+      "event" : {
+        "allow" : [
+          { "domain" : "safeandmine", "type" : "notify" }
+          , { "domain" : "safeandmine", "type" : "tag_register_response" }
+          ]
       }
     }
     
@@ -49,6 +62,21 @@ ruleset io.picolabs.safeandmine {
   }
   
   rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "https://image.flaticon.com/icons/svg/172/172076.svg"} ); }
+  
+  rule update_tag_store {
+    select when manifold apps
+    
+    pre {
+      hasDomain = ent:tagStore.defaultsTo({}).keys() >< "sqtg";
+    }
+    
+    if hasDomain then noop();
+    
+    notfired {
+      ent:tagStore := {}.put("sqtg", ent:tagStore)
+    }
+    
+  }
   
   rule create_policy {
     select when wrangler ruleset_added where rid >< meta:rid
@@ -105,14 +133,17 @@ ruleset io.picolabs.safeandmine {
     
     pre {
       tagID = event:attr("tagID").as("String");
+      domain = event:attr("domain").as("String");
     }
     
-      if (tagID.length() == 6) then noop();
+      if (tagID.length() > 1) then 
+        noop();
     
       fired {
         raise safeandmine event "new_tag_channel"
           attributes {
-            "tagID" : event:attr("tagID").uc()
+            "tagID" : tagID.uc(),
+            "domain" : domain
           }
       }
   }
@@ -123,7 +154,7 @@ ruleset io.picolabs.safeandmine {
     always {
       raise wrangler event "channel_creation_requested"
         attributes {
-          "name" : event:attr("tagID"),
+          "name" : event:attr("domain") + "/" + event:attr("tagID"),
           "type" : "tagRegistry",
           "policy_id" : getPolicyID(),
           "attrs" : event:attrs
@@ -136,11 +167,13 @@ ruleset io.picolabs.safeandmine {
     
     pre {
       tagID = event:attr("attrs"){"tagID"}.klog("TAGID");
+      domain = event:attr("attrs"){"domain"}.klog("DOMAIN");
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
     
-    //http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
-    http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
+    event:send({"eci": "8UV1KPdCCH6wTDS3x3jc9u", "domain": "safeandmine", "type": "register_tag", "attrs" : { "tagID" : tagID, "DID" : channel, "domain" : domain } });
+    //http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel, "domain" : domain }, autoraise=channel ) setting(resp)
+    //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
     
     always {
       ent:channels := ent:channels.defaultsTo([]).append(channel)
@@ -149,17 +182,17 @@ ruleset io.picolabs.safeandmine {
   }
   
   rule post_response {
-    select when http post
+    select when safeandmine tag_register_response
     
     pre{
-      content = event:attr("content").decode();
-      tagID = content{"tagID"};
-      DID = content{"DID"}
+      tagID = event:attr("tagID");
+      DID = event:attr("DID");
+      domain = event:attr("domain");
     }
-    if (event:attr("status_code") == 200 && tagID && DID) then noop();
+    if ( tagID && DID) then noop();
     
     fired {
-      ent:tagStore := ent:tagStore.defaultsTo({}).put(tagID, DID);
+      ent:tagStore := ent:tagStore.defaultsTo({}).put([domain, tagID], DID);
     }
     else {
       raise safeandmine event "cleanup" attributes event:attrs
@@ -184,15 +217,19 @@ ruleset io.picolabs.safeandmine {
     
     pre {
       tagToDelete = event:attr("tagID");
-      channelToDelete = ent:tagStore{tagToDelete};
+      domain = event:attr("domain");
+      channelToDelete = ent:tagStore.get([domain, tagToDelete]);
     }
     
     if tagToDelete && channelToDelete then 
-    http:post("https://apps.picolabs.io/safeandmine/api/delete", json = { "tagID" : tagToDelete });
-    //http:post("http://localhost:3001/safeandmine/api/delete", json = { "tagID" : tagToDelete });
+    event:send({"eci": "8UV1KPdCCH6wTDS3x3jc9u", "domain": "safeandmine", "type": "deregister_tag", "attrs" : { "tagID" : tagToDelete, "domain" : domain } });
+    //http:post("https://apps.picolabs.io/safeandmine/api/delete", json = { "tagID" : tagToDelete });
+    //http:post("http://localhost:3001/safeandmine/api/delete", json = { "tagID" : tagToDelete, "domain" : domain });
     
     fired{
-      ent:tagStore := ent:tagStore.delete(tagToDelete);
+      ent:tagStore := ent:tagStore.defaultsTo({}).delete([domain,tagToDelete]).filter(function(v,k) {
+        v.length() > 0
+      });
       raise safeandmine event "cleanup"
       attributes {
         "label" : channelToDelete
@@ -203,14 +240,44 @@ ruleset io.picolabs.safeandmine {
   rule deregister_all {
     select when apps cleanup
     
-    foreach ent:tagStore setting (DID, tagID)
+    foreach ent:tagStore setting (tags, domain)
+      foreach tags.klog("tags") setting (did, tagID)
     
     always {
       raise safeandmine event "deregister"
       attributes {
-        "tagID" : tagID
+        "domain" : domain.klog("domain"),
+        "tagID" : tagID.klog("tagID")
       }
     }
+    
+  }
+  
+  rule notify {
+    select when safeandmine notify
+    
+    pre {
+      toSend = sub:established().filter(function(x) {
+        x{"Tx_role"} == "manifold_pico"
+      }).head(){"Tx"};
+      tagID = event:attr("tagID");
+      picoId = meta:picoId;
+      app = "SafeAndMine";
+      rid = meta:rid;
+      name = Wrangler:name();
+      message = "Your tag " + tagID + " has been scanned";
+      attrs = { 
+        "picoId" : picoId,
+        "thing" : name,
+        "app" : app,
+        "message" : message,
+        "ruleset" : rid
+      }
+    }
+    
+    if tagID && picoId && app && rid && name && message && toSend then 
+      event:send({ "eci" : toSend, "domain" : "manifold", "type" : "add_notification", "attrs" : attrs})
+    
     
   }
   
