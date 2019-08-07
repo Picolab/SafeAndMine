@@ -171,7 +171,7 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
     
-    event:send({"eci": "8UV1KPdCCH6wTDS3x3jc9u", "domain": "safeandmine", "type": "register_tag", "attrs" : { "tagID" : tagID, "DID" : channel, "domain" : domain } });
+    event:send({"eci": "CEmo7mURALxUzEVLkN2Fwc", "domain": "safeandmine", "type": "register_tag", "attrs" : { "tagID" : tagID, "DID" : channel, "domain" : domain } });
     //http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel, "domain" : domain }, autoraise=channel ) setting(resp)
     //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
     
@@ -222,7 +222,7 @@ ruleset io.picolabs.safeandmine {
     }
     
     if tagToDelete && channelToDelete then 
-    event:send({"eci": "8UV1KPdCCH6wTDS3x3jc9u", "domain": "safeandmine", "type": "deregister_tag", "attrs" : { "tagID" : tagToDelete, "domain" : domain } });
+    event:send({"eci": "CEmo7mURALxUzEVLkN2Fwc", "domain": "safeandmine", "type": "deregister_tag", "attrs" : { "tagID" : tagToDelete, "domain" : domain } });
     //http:post("https://apps.picolabs.io/safeandmine/api/delete", json = { "tagID" : tagToDelete });
     //http:post("http://localhost:3001/safeandmine/api/delete", json = { "tagID" : tagToDelete, "domain" : domain });
     
