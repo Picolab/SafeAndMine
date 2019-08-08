@@ -16,6 +16,7 @@ ruleset io.picolabs.safeandmine {
       , { "domain": "safeandmine", "type": "deregister", "attrs": [ "tagID", "domain" ] }
       , { "domain": "safeandmine", "type": "notify", "attrs": [ "tagID" ] }
       , { "domain": "apps", "type": "cleanup" }
+      , { "domain": "safeandmine", "type": "update_registry_eci", "attrs": [ "eci" ] }
       ]
     }
     
@@ -61,21 +62,49 @@ ruleset io.picolabs.safeandmine {
     MESSAGE_CHAR_LENGTH = 250
   }
   
-  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "https://image.flaticon.com/icons/svg/172/172076.svg"} ); }
+  rule update_registry_eci {
+    select when safeandmine update_registry_eci
+    
+    pre {
+      eci = event:attr("eci")
+    }
+    
+    if eci then noop();
+    
+    fired {
+      ent:registry_eci := eci;
+    }
+  }
   
+  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "https://image.flaticon.com/icons/svg/172/172076.svg"} ); }
+
   rule update_tag_store {
     select when manifold apps
     
     pre {
-      hasDomain = ent:tagStore.defaultsTo({}).keys() >< "sqtg";
+      domains = ent:tagStore.defaultsTo({}).values().klog("Values");
+      needsUpdate = (domains.klog("domain").head().typeof() == "Map").klog("hasDomain") && ent:tagStore != {}
     }
     
-    if hasDomain then noop();
+    if needsUpdate then noop();
     
     notfired {
-      ent:tagStore := {}.put("sqtg", ent:tagStore)
+      ent:tagStore := {}.put("sqtg", ent:tagStore);
+      raise safeandmine event "update"
+    } else {
+      raise safeandmine event "update"
     }
     
+  }
+  
+  rule update_policy {
+    select when safeandmine update
+    
+    pre {
+      exists = getPolicyID()
+    }
+    if exists.isnull() then 
+      engine:newPolicy(policy);
   }
   
   rule create_policy {
@@ -171,7 +200,7 @@ ruleset io.picolabs.safeandmine {
       channel = event:attr("channel"){"id"}.klog("CHANNEL");
     }
     
-    event:send({"eci": "CEmo7mURALxUzEVLkN2Fwc", "domain": "safeandmine", "type": "register_tag", "attrs" : { "tagID" : tagID, "DID" : channel, "domain" : domain } });
+    event:send({"eci": ent:registry_eci, "domain": "safeandmine", "type": "register_tag", "attrs" : { "tagID" : tagID, "DID" : channel, "domain" : domain } });
     //http:post("http://localhost:3001/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel, "domain" : domain }, autoraise=channel ) setting(resp)
     //http:post("https://apps.picolabs.io/safeandmine/api/tags", json = { "tagID" : tagID, "DID" : channel }, autoraise=channel ) setting(resp)
     
@@ -222,7 +251,7 @@ ruleset io.picolabs.safeandmine {
     }
     
     if tagToDelete && channelToDelete then 
-    event:send({"eci": "CEmo7mURALxUzEVLkN2Fwc", "domain": "safeandmine", "type": "deregister_tag", "attrs" : { "tagID" : tagToDelete, "domain" : domain } });
+    event:send({"eci": ent:registry_eci, "domain": "safeandmine", "type": "deregister_tag", "attrs" : { "tagID" : tagToDelete, "domain" : domain } });
     //http:post("https://apps.picolabs.io/safeandmine/api/delete", json = { "tagID" : tagToDelete });
     //http:post("http://localhost:3001/safeandmine/api/delete", json = { "tagID" : tagToDelete, "domain" : domain });
     
