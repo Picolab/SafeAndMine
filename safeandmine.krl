@@ -83,12 +83,12 @@ ruleset io.picolabs.safeandmine {
     
     pre {
       domains = ent:tagStore.defaultsTo({}).values().klog("Values");
-      needsUpdate = (domains.klog("domain").head().typeof() == "Map").klog("hasDomain") && ent:tagStore != {}
+      needsUpdate = (domains.head().typeof() == "Map").klog("hasDomain") && ent:tagStore.defaultsTo({}).keys().length() < 1;
     }
     
     if needsUpdate then noop();
     
-    notfired {
+    fired {
       ent:tagStore := {}.put("sqtg", ent:tagStore);
       raise safeandmine event "update"
     } else {
@@ -288,7 +288,7 @@ ruleset io.picolabs.safeandmine {
     pre {
       toSend = sub:established().filter(function(x) {
         x{"Tx_role"} == "manifold_pico"
-      }).head(){"Tx"};
+      }).head(){"Tx"}.klog("ECI to send notification");
       tagID = event:attr("tagID");
       picoId = meta:picoId;
       app = "SafeAndMine";
