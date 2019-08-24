@@ -16,6 +16,7 @@ ruleset io.picolabs.safeandmine {
       , { "domain": "safeandmine", "type": "deregister", "attrs": [ "tagID", "domain" ] }
       , { "domain": "safeandmine", "type": "notify", "attrs": [ "tagID" ] }
       , { "domain": "apps", "type": "cleanup" }
+      , { "domain": "generate", "type": "fake_store" }
       , { "domain": "safeandmine", "type": "update_registry_eci", "attrs": [ "eci" ] }
       ]
     }
@@ -62,6 +63,17 @@ ruleset io.picolabs.safeandmine {
     MESSAGE_CHAR_LENGTH = 250
   }
   
+  rule fake_store {
+    select when generate fake_store
+    pre {
+      fakeStore = {"tagID1" : "did1", "tagID2" : "did2"}
+    }
+    
+    always {
+      ent:tagStore := {}
+    }
+  }
+  
   rule update_registry_eci {
     select when safeandmine update_registry_eci
     
@@ -83,22 +95,22 @@ ruleset io.picolabs.safeandmine {
     
     pre {
       domains = ent:tagStore.defaultsTo({}).values().klog("Values");
-      needsUpdate = (domains.head().typeof() == "Map").klog("hasDomain") && ent:tagStore.defaultsTo({}).keys().length() < 1;
+      needsUpdate = (not((domains.head().typeof() == "Map").klog("hasDomain")) && domains.length() > 0);
     }
     
-    if needsUpdate then noop();
+    if needsUpdate.klog("Does not need update") then noop();
     
     fired {
       ent:tagStore := {}.put("sqtg", ent:tagStore);
-      raise safeandmine event "update"
+      raise safeandmine event "update_policy"
     } else {
-      raise safeandmine event "update"
+      raise safeandmine event "update_policy"
     }
     
   }
   
   rule update_policy {
-    select when safeandmine update
+    select when safeandmine update_policy
     
     pre {
       exists = getPolicyID()
@@ -218,7 +230,7 @@ ruleset io.picolabs.safeandmine {
       DID = event:attr("DID");
       domain = event:attr("domain");
     }
-    if ( tagID && DID) then noop();
+    if (tagID && DID) then noop();
     
     fired {
       ent:tagStore := ent:tagStore.defaultsTo({}).put([domain, tagID], DID);
