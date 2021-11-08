@@ -88,7 +88,7 @@ ruleset io.picolabs.safeandmine {
     }
   }
   
-  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "https://image.flaticon.com/icons/svg/172/172076.svg"} ); }
+  rule discovery { select when manifold apps send_directive("app discovered...", {"app": app, "rid": meta:rid, "bindings": bindings(), "iconURL": "https://raw.githubusercontent.com/Picolab/SafeAndMine/master/logo.svg"} ); }
 
   rule update_tag_store {
     select when manifold apps
